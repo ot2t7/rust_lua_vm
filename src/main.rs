@@ -1,8 +1,9 @@
-use std::fs;
-use std::env;
-
 mod error;
 mod vm;
+
+use std::fs;
+use std::env;
+use error::*;
 
 fn main() {
     // Get the arguments passed into the executable
@@ -12,10 +13,10 @@ fn main() {
     let file_packed = fs::read(args[1].clone());
     match file_packed {
         Ok(_) => {},
-        Err(_) => error::err(error::ErrorKind::CouldntReadFile)
+        Err(_) => ErrorKind::couldnt_read_file()
     }
 
     let file = file_packed.unwrap();
 
-    vm::run_vm(file);
+    vm::from_bytecode(file);
 }

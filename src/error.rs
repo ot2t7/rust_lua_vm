@@ -1,13 +1,7 @@
-pub enum ErrorKind {
-    CouldntReadFile,
-    InvalidHeader(String),
-    TooShort
-}
+pub struct ErrorKind;
 
-pub fn err(kind: ErrorKind) {
-    match kind {
-        ErrorKind::CouldntReadFile => panic!("couldn't read the provided file"),
-        ErrorKind::InvalidHeader(v) => panic!("lua header is malformed ({})", v),
-        ErrorKind::TooShort => panic!("bytecode length too short")
-    }
+impl ErrorKind {
+    pub fn couldnt_read_file() { panic!("couldn't read the provided file") }
+    pub fn invalid_header(desc: String) { panic!("lua header is malformed ({})", desc) }
+    pub fn too_short() { panic!("bytecode length too short") }
 }

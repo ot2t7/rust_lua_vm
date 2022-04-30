@@ -1,14 +1,17 @@
 use crate::error::*;
-use std::convert::TryInto;
+use std::str;
+use std::io::Cursor;
+use byteorder::{BigEndian, ReadBytesExt};
 
 struct BytecodeReader {
     buf: Vec<u8>,
-    needle: usize
+    needle: usize,
+    size_t: usize
 }
 
 impl BytecodeReader {
     pub fn new(buf: Vec<u8>) -> BytecodeReader {
-        return BytecodeReader { buf, needle: 0};
+        return BytecodeReader { buf, needle: 0, size_t: 4};
     }
 
     /// Reads the specified amount of bytes from the bytecode, and "pop"s it out
@@ -23,9 +26,39 @@ impl BytecodeReader {
 
     /// Reads 4 big-endian bytes, and returns a u32
     pub fn read_u32(&mut self) -> u32 {
-        let snippet: &[u8 ; 4] = &self.buf[self.needle..self.needle+4].try_into().expect("read a u32, but it was not 4 bytes");
-        self.needle += 4;
-        return u32::from_be_bytes(*snippet);
+        let mut bytes = Cursor::new(self.read(4));
+        return bytes.read_u32::<BigEndian>().expect("couldn't convert bytes to u32");
+    }
+
+    /// Register the size of size_t
+    pub fn set_size_t(&mut self, size_t: usize) {
+        self.size_t = size_t;
+    }
+
+    /// Reads a size_t and returns a u32
+    pub fn read_size_t(&mut self) -> u32 {
+        let mut size_t_vec = Cursor::new(self.read(self.size_t));
+        return size_t_vec.read_u32::<BigEndian>().expect("couldn't convert size_t to u32")
+    }
+
+    /// Reads a String inside of the bytecode, and if it's length is more than 0, it returns Some(String)
+    /// Strings which are size_t of 0 are returned as None
+    pub fn read_string(&mut self) -> Option<String> {
+        let size_string = self.read_size_t() as usize;
+        if size_string == 0 {
+            return None;
+        } else {
+            match String::from_utf8(self.read(size_string)) {
+                Ok(interpreted) => {
+                    return Some(interpreted);
+                }
+                Err(_) => ErrorKind::invalid_string()
+            }
+
+        }
+
+        // We should never get here
+        return None;
     }
 }
 
@@ -53,6 +86,7 @@ pub fn from_bytecode(buf: Vec<u8>) {
     let size_int = bytecode.read(1)[0];
     // Size of size_t (in bytes)
     let size_size_t = bytecode.read(1)[0];
+    bytecode.set_size_t(size_size_t as usize);
     // Size of Instruction (in bytes)
     let size_instruction = bytecode.read(1)[0];
     // Size of lua_Number (in bytes)
@@ -62,4 +96,8 @@ pub fn from_bytecode(buf: Vec<u8>) {
     if integral_flag > 1 {
         ErrorKind::invalid_header("integral flag can only be 0 or 1".to_owned());
     }
-} 
+
+    // Now, we move onto the function block
+
+
+}  
